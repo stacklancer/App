@@ -1131,11 +1131,12 @@ describe('OnboardingWorkspaces Page', () => {
         expect(lastCompleteOnboardingArgs).not.toHaveProperty('onboardingPolicyID');
 
         await waitFor(() => {
-            expect(onyxSetSpy).toHaveBeenCalledWith(ONYXKEYS.NVP_ONBOARDING_RHP_VARIANT, CONST.ONBOARDING_RHP_VARIANT.RHP_ADMINS_ROOM);
             expect(navigate).toHaveBeenCalledWith(
                 ROUTES.SEARCH_ROOT.getRoute({query: buildCannedSearchQuery({type: CONST.SEARCH.DATA_TYPES.EXPENSE}), searchKey: CONST.SEARCH.SEARCH_KEYS.EXPENSES}),
             );
         });
+        // Auto-joining a Submit workspace lands on Expenses with the side panel closed and leaves the assigned experiment arm as it is
+        expect(onyxSetSpy).not.toHaveBeenCalledWith(ONYXKEYS.NVP_ONBOARDING_RHP_VARIANT, CONST.ONBOARDING_RHP_VARIANT.RHP_ADMINS_ROOM);
 
         onyxSetSpy.mockRestore();
         unmount();

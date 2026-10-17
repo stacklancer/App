@@ -125,18 +125,19 @@ function useAutoCreateTrackWorkspace() {
 
                 if (isSidePanelReportSupported) {
                     rhpVariant = extractRHPVariantFromResponse(response);
-                    // Every Track onboarding choice should land in the Concierge RHP, but the backend
-                    // doesn't reliably return trackExpensesWithConcierge for all of them, so fall back to it
-                    // whenever the response omits a variant.
-                    if (!rhpVariant && isTrackOnboardingChoice(onboardingPurposeSelected)) {
-                        rhpVariant = CONST.ONBOARDING_RHP_VARIANT.TRACK_EXPENSES_WITH_CONCIERGE;
-                    }
                 }
             } catch (error) {
                 Log.warn('[useAutoCreateTrackWorkspace] Error completing onboarding', {error});
             } finally {
                 setOnboardingAdminsChatReportID();
                 setOnboardingPolicyID();
+
+                // Every Track onboarding choice should land on Home, but the backend doesn't reliably return
+                // trackExpensesWithConcierge for all of them (and returns nothing when the request fails),
+                // so fall back to it whenever there's no variant.
+                if (!rhpVariant && isTrackOnboardingChoice(onboardingPurposeSelected)) {
+                    rhpVariant = CONST.ONBOARDING_RHP_VARIANT.TRACK_EXPENSES_WITH_CONCIERGE;
+                }
 
                 navigateAfterOnboardingWithMicrotaskQueue(
                     shouldUseNarrowLayout,

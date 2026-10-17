@@ -62,35 +62,40 @@ describe('handleRHPVariantNavigation', () => {
         mockIsReportTopmostSplitNavigator.mockReturnValue(false);
     });
 
-    it('preserves the topmost report for the rhpHomePage variant', () => {
+    it('preserves the topmost report for the rhpHomePage variant without opening the side panel', () => {
         mockIsReportTopmostSplitNavigator.mockReturnValue(true);
 
         handleRHPVariantNavigation('policyID', CONST.ONBOARDING_RHP_VARIANT.RHP_HOME_PAGE);
 
         expect(Navigation.navigate).not.toHaveBeenCalled();
-        expect(SidePanelActions.openSidePanel).toHaveBeenCalledWith(true);
+        expect(SidePanelActions.openSidePanel).not.toHaveBeenCalled();
     });
 
-    it('navigates home for the rhpHomePage variant when no report is topmost', () => {
+    it('navigates home for the rhpHomePage variant without opening the side panel', () => {
         handleRHPVariantNavigation('policyID', CONST.ONBOARDING_RHP_VARIANT.RHP_HOME_PAGE);
 
         expect(Navigation.navigate).toHaveBeenCalledWith(ROUTES.HOME, undefined);
-        expect(SidePanelActions.openSidePanel).toHaveBeenCalledWith(true);
+        expect(SidePanelActions.openSidePanel).not.toHaveBeenCalled();
     });
 
-    it('preserves the topmost report for the trackExpensesWithConcierge variant and opens the side panel on top of it', () => {
-        mockIsReportTopmostSplitNavigator.mockReturnValue(true);
+    it.each([CONST.ONBOARDING_RHP_VARIANT.RHP_ADMINS_ROOM, CONST.ONBOARDING_RHP_VARIANT.RHP_CONCIERGE_DM])(
+        'navigates to the onboarding workspace overview for the %s variant without opening the side panel',
+        (variant) => {
+            handleRHPVariantNavigation('policyID', variant);
 
-        handleRHPVariantNavigation('policyID', CONST.ONBOARDING_RHP_VARIANT.TRACK_EXPENSES_WITH_CONCIERGE);
+            expect(Navigation.navigate).toHaveBeenCalledWith(ROUTES.WORKSPACE_OVERVIEW.getRoute('policyID'), undefined);
+            expect(SidePanelActions.openSidePanel).not.toHaveBeenCalled();
+        },
+    );
 
-        expect(Navigation.navigate).not.toHaveBeenCalled();
-        expect(SidePanelActions.openSidePanel).toHaveBeenCalledWith(true);
-    });
+    it.each([CONST.ONBOARDING_RHP_VARIANT.RHP_ADMINS_ROOM, CONST.ONBOARDING_RHP_VARIANT.RHP_CONCIERGE_DM])(
+        'navigates home instead of an undefined workspace overview for the %s variant when there is no onboarding policy',
+        (variant) => {
+            handleRHPVariantNavigation(undefined, variant);
 
-    it('navigates home for the trackExpensesWithConcierge variant when no report is topmost', () => {
-        handleRHPVariantNavigation('policyID', CONST.ONBOARDING_RHP_VARIANT.TRACK_EXPENSES_WITH_CONCIERGE);
-
-        expect(Navigation.navigate).toHaveBeenCalledWith(ROUTES.HOME, undefined);
-        expect(SidePanelActions.openSidePanel).toHaveBeenCalledWith(true);
-    });
+            expect(Navigation.navigate).toHaveBeenCalledTimes(1);
+            expect(Navigation.navigate).toHaveBeenCalledWith(ROUTES.HOME, undefined);
+            expect(SidePanelActions.openSidePanel).not.toHaveBeenCalled();
+        },
+    );
 });

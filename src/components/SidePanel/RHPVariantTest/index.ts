@@ -1,4 +1,3 @@
-import SidePanelActions from '@libs/actions/SidePanel';
 import isReportTopmostSplitNavigator from '@libs/Navigation/helpers/isReportTopmostSplitNavigator';
 import Navigation from '@libs/Navigation/Navigation';
 
@@ -60,33 +59,22 @@ const shouldOpenRHPVariant: ShouldOpenRHPVariant = (variantOverride) => {
 };
 
 /**
- * Handles navigation for RHP experiment variants (B/C/D):
- * Variants B and C navigate to the workspace overview, Variant D navigates to home.
- * All variants open the side panel without overlay.
- * The control variant is handled separately in navigateAfterOnboarding.
+ * Handles the landing for accounts still assigned a retired RHP experiment arm (B/C/D). The side panel is never opened after onboarding:
+ * Variant D (rhpHomePage) navigates to home, variants B and C navigate to the onboarding workspace overview, or to home when there is none.
+ * Track intents and the control variant are handled in navigateAfterOnboarding.
  */
 const handleRHPVariantNavigation: HandleRHPVariantNavigation = (onboardingPolicyID, variantOverride, navigationOptions) => {
     const variant = variantOverride ?? onboardingRHPVariant;
-    if (variant === CONST.ONBOARDING_RHP_VARIANT.TRACK_EXPENSES_WITH_CONCIERGE) {
-        const shouldPreserveRevealedReport = isReportTopmostSplitNavigator();
-        if (!shouldPreserveRevealedReport) {
+
+    // Join paths like "Ask to join" finish onboarding without an onboarding policy, so there is no workspace overview to open.
+    if (variant === CONST.ONBOARDING_RHP_VARIANT.RHP_HOME_PAGE || !onboardingPolicyID) {
+        if (!isReportTopmostSplitNavigator()) {
             Navigation.navigate(ROUTES.HOME, navigationOptions);
         }
-        SidePanelActions.openSidePanel(true);
         return;
     }
 
-    const isRHPHomePage = variant === CONST.ONBOARDING_RHP_VARIANT.RHP_HOME_PAGE;
-
-    if (isRHPHomePage) {
-        const shouldPreserveRevealedReport = isReportTopmostSplitNavigator();
-        if (!shouldPreserveRevealedReport) {
-            Navigation.navigate(ROUTES.HOME, navigationOptions);
-        }
-    } else {
-        Navigation.navigate(ROUTES.WORKSPACE_OVERVIEW.getRoute(onboardingPolicyID), navigationOptions);
-    }
-    SidePanelActions.openSidePanel(true);
+    Navigation.navigate(ROUTES.WORKSPACE_OVERVIEW.getRoute(onboardingPolicyID), navigationOptions);
 };
 
 export {shouldOpenRHPVariant, handleRHPVariantNavigation};

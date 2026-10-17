@@ -47,28 +47,16 @@ describe('navigateToSubmitWorkspaceAfterOnboardingWithMicrotaskQueue', () => {
         expect(SidePanelActions.openSidePanel).not.toHaveBeenCalled();
     });
 
-    it('navigates to Spend > Expenses with the expanded side panel when not using narrow layout', () => {
-        navigateToSubmitWorkspaceAfterOnboardingWithMicrotaskQueue('test-policy-id', false);
+    it('navigates to Spend > Expenses without opening the side panel or changing the RHP variant', () => {
+        navigateToSubmitWorkspaceAfterOnboardingWithMicrotaskQueue('test-policy-id');
 
         expect(navigationMock.dismissModal).toHaveBeenCalledTimes(1);
         expect(navigationMock.navigate).toHaveBeenCalledTimes(1);
         expect(navigationMock.navigate).toHaveBeenCalledWith(
             ROUTES.SEARCH_ROOT.getRoute({query: buildCannedSearchQuery({type: CONST.SEARCH.DATA_TYPES.EXPENSE}), searchKey: CONST.SEARCH.SEARCH_KEYS.EXPENSES}),
         );
-        // The side panel shows the #admins room, where the Submit welcome and its suggested responses are posted.
-        expect(setOnboardingRHPVariant).toHaveBeenCalledWith(CONST.ONBOARDING_RHP_VARIANT.RHP_ADMINS_ROOM);
-        expect(SidePanelActions.openSidePanel).toHaveBeenCalledWith(true);
-    });
-
-    it('navigates to Spend > Expenses with the collapsed side panel when using narrow layout', () => {
-        navigateToSubmitWorkspaceAfterOnboardingWithMicrotaskQueue('test-policy-id', true);
-
-        expect(navigationMock.dismissModal).toHaveBeenCalledTimes(1);
-        expect(navigationMock.navigate).toHaveBeenCalledTimes(1);
-        expect(navigationMock.navigate).toHaveBeenCalledWith(
-            ROUTES.SEARCH_ROOT.getRoute({query: buildCannedSearchQuery({type: CONST.SEARCH.DATA_TYPES.EXPENSE}), searchKey: CONST.SEARCH.SEARCH_KEYS.EXPENSES}),
-        );
-        expect(setOnboardingRHPVariant).toHaveBeenCalledWith(CONST.ONBOARDING_RHP_VARIANT.RHP_ADMINS_ROOM);
-        expect(SidePanelActions.openSidePanel).toHaveBeenCalledWith(false);
+        // The #admins room stays in the LHN; onboarding no longer surfaces it in the side panel or overwrites the assigned experiment arm.
+        expect(setOnboardingRHPVariant).not.toHaveBeenCalled();
+        expect(SidePanelActions.openSidePanel).not.toHaveBeenCalled();
     });
 });

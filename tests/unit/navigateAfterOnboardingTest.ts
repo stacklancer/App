@@ -13,6 +13,8 @@ import ROUTES from '@src/ROUTES';
 
 import Onyx from 'react-native-onyx';
 
+import type * as RHPVariantTest from '../../src/components/SidePanel/RHPVariantTest/index';
+
 import getOnyxValue from '../utils/getOnyxValue';
 import waitForBatchedUpdates from '../utils/waitForBatchedUpdates';
 
@@ -84,6 +86,9 @@ jest.mock('@libs/Navigation/helpers/isReportTopmostSplitNavigator', () => ({
     __esModule: true,
     default: () => mockIsReportTopmostSplitNavigator(),
 }));
+
+// jest-expo resolves RHPVariantTest/index.native.ts (a no-op) first, so use the web implementation that decides whether the side panel opens.
+jest.mock('@components/SidePanel/RHPVariantTest', () => jest.requireActual<typeof RHPVariantTest>('../../src/components/SidePanel/RHPVariantTest/index.ts'));
 
 describe('navigateAfterOnboarding', () => {
     beforeAll(() => {
@@ -356,4 +361,95 @@ describe('navigateAfterOnboarding', () => {
         expect(navigate).toHaveBeenCalledWith(ROUTES.HOME, undefined);
         expect(navigate).not.toHaveBeenCalledWith(ROUTES.REPORT_WITH_ID.getRoute(ONBOARDING_ADMINS_CHAT_REPORT_ID), undefined);
     });
+
+    it.each([false, true])('should land on Home without opening the side panel for the trackExpensesWithConcierge variant (small screen: %s)', async (isSmallScreenWidth) => {
+        // Given a Track admin, whose onboarding tasks live in Home's Getting started
+        const navigate = jest.spyOn(Navigation, 'navigate');
+        const openSidePanel = jest.spyOn(SidePanelActions, 'openSidePanel');
+
+        // When onboarding finishes with the trackExpensesWithConcierge variant
+        navigateAfterOnboarding(isSmallScreenWidth, true, REPORT_ID, {}, ONBOARDING_POLICY_ID, ONBOARDING_ADMINS_CHAT_REPORT_ID, false, {
+            variantOverride: CONST.ONBOARDING_RHP_VARIANT.TRACK_EXPENSES_WITH_CONCIERGE,
+        });
+        await waitForBatchedUpdates();
+
+        // Then the user lands on Home on every screen size, not in the Concierge DM, and the side panel stays closed
+        expect(navigate).toHaveBeenCalledTimes(1);
+        expect(navigate).toHaveBeenCalledWith(ROUTES.HOME, undefined);
+        expect(navigate).not.toHaveBeenCalledWith(ROUTES.REPORT_WITH_ID.getRoute(REPORT_ID), undefined);
+        expect(openSidePanel).not.toHaveBeenCalled();
+        const sidePanel = await getOnyxValue(ONYXKEYS.NVP_SIDE_PANEL);
+        expect(sidePanel?.open).toBeFalsy();
+        expect(sidePanel?.openNarrowScreen).toBeFalsy();
+    });
+
+    it('should keep a report that is already on top for the trackExpensesWithConcierge variant', async () => {
+        // Given a report is already showing
+        const navigate = jest.spyOn(Navigation, 'navigate');
+        const openSidePanel = jest.spyOn(SidePanelActions, 'openSidePanel');
+        mockIsReportTopmostSplitNavigator.mockReturnValue(true);
+
+        // When onboarding finishes with the trackExpensesWithConcierge variant
+        navigateAfterOnboarding(false, true, REPORT_ID, {}, ONBOARDING_POLICY_ID, ONBOARDING_ADMINS_CHAT_REPORT_ID, false, {
+            variantOverride: CONST.ONBOARDING_RHP_VARIANT.TRACK_EXPENSES_WITH_CONCIERGE,
+        });
+        await waitForBatchedUpdates();
+
+        // Then the report stays where it is, and the side panel is not opened over it
+        expect(navigate).not.toHaveBeenCalled();
+        expect(openSidePanel).not.toHaveBeenCalled();
+    });
+
+    it('should use the stored trackExpensesWithConcierge variant when the onboarding response does not carry one', async () => {
+        // Given the Track variant was saved to Onyx earlier
+        const navigate = jest.spyOn(Navigation, 'navigate');
+        const openSidePanel = jest.spyOn(SidePanelActions, 'openSidePanel');
+        await Onyx.set(ONYXKEYS.NVP_ONBOARDING_RHP_VARIANT, CONST.ONBOARDING_RHP_VARIANT.TRACK_EXPENSES_WITH_CONCIERGE);
+
+        // When onboarding finishes without a variant override
+        navigateAfterOnboarding(false, true, REPORT_ID, {}, ONBOARDING_POLICY_ID, ONBOARDING_ADMINS_CHAT_REPORT_ID);
+        await waitForBatchedUpdates();
+
+        // Then the user lands on Home with the side panel closed
+        expect(navigate).toHaveBeenCalledWith(ROUTES.HOME, undefined);
+        expect(openSidePanel).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        [CONST.ONBOARDING_RHP_VARIANT.RHP_HOME_PAGE, ROUTES.HOME],
+        [CONST.ONBOARDING_RHP_VARIANT.RHP_ADMINS_ROOM, ROUTES.WORKSPACE_OVERVIEW.getRoute(ONBOARDING_POLICY_ID)],
+        [CONST.ONBOARDING_RHP_VARIANT.RHP_CONCIERGE_DM, ROUTES.WORKSPACE_OVERVIEW.getRoute(ONBOARDING_POLICY_ID)],
+    ])('should keep the landing page but not open the side panel for the retired %s variant at a micro company size', async (variant, expectedRoute) => {
+        // Given an account still assigned a retired arm at a company size where those arms used to open the side panel
+        const navigate = jest.spyOn(Navigation, 'navigate');
+        const openSidePanel = jest.spyOn(SidePanelActions, 'openSidePanel');
+        await Onyx.set(ONYXKEYS.ONBOARDING_COMPANY_SIZE, CONST.ONBOARDING_COMPANY_SIZE.MICRO_SMALL);
+
+        // When onboarding finishes with that arm
+        navigateAfterOnboarding(false, true, REPORT_ID, {}, ONBOARDING_POLICY_ID, ONBOARDING_ADMINS_CHAT_REPORT_ID, false, {variantOverride: variant});
+        await waitForBatchedUpdates();
+
+        // Then the user lands where the arm sends them, with the side panel closed
+        expect(navigate).toHaveBeenCalledWith(expectedRoute, undefined);
+        expect(openSidePanel).not.toHaveBeenCalled();
+        const sidePanel = await getOnyxValue(ONYXKEYS.NVP_SIDE_PANEL);
+        expect(sidePanel?.open).toBeFalsy();
+    });
+
+    it.each([CONST.ONBOARDING_RHP_VARIANT.RHP_ADMINS_ROOM, CONST.ONBOARDING_RHP_VARIANT.RHP_CONCIERGE_DM])(
+        'should land on Home instead of an undefined workspace overview for the retired %s variant when onboarding ends without a policy',
+        async (variant) => {
+            // Given a retired arm at a micro company size, and a join path like "Ask to join" that finishes without an onboarding policy
+            const navigate = jest.spyOn(Navigation, 'navigate');
+            await Onyx.set(ONYXKEYS.ONBOARDING_COMPANY_SIZE, CONST.ONBOARDING_COMPANY_SIZE.MICRO_SMALL);
+
+            // When onboarding finishes without a policy ID
+            navigateAfterOnboarding(false, true, REPORT_ID, {}, undefined, undefined, false, {variantOverride: variant});
+            await waitForBatchedUpdates();
+
+            // Then the user lands on Home rather than the Not Found page at workspaces/undefined/overview
+            expect(navigate).toHaveBeenCalledTimes(1);
+            expect(navigate).toHaveBeenCalledWith(ROUTES.HOME, undefined);
+        },
+    );
 });
