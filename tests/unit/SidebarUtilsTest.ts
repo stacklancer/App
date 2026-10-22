@@ -4731,6 +4731,89 @@ describe('SidebarUtils', () => {
                 expect(result).not.toBe(displayedReports);
                 expect(result['0']).toBeUndefined();
             });
+
+            describe('flagged reports', () => {
+                const flaggedReportKey = `${ONYXKEYS.COLLECTION.REPORT}1`;
+                const flaggedReport: Report = {
+                    reportID: '1',
+                    reportName: 'Chat',
+                    type: CONST.REPORT.TYPE.CHAT,
+                    lastVisibleActionCreated: '2026-10-20 10:00:00.000',
+                    lastReadTime: '2026-10-20 09:00:00.000',
+                    participants: {
+                        [CURRENT_USER_ACCOUNT_ID]: {notificationPreference: CONST.REPORT.NOTIFICATION_PREFERENCE.ALWAYS},
+                        2: {notificationPreference: CONST.REPORT.NOTIFICATION_PREFERENCE.ALWAYS},
+                    },
+                };
+                const requiresAttentionAttributes: Record<string, ReportAttributes> = {
+                    '1': {requiresAttention: true, isEmpty: false, reportName: 'Chat', reportErrors: {}, brickRoadStatus: undefined},
+                };
+
+                const update = (displayedReports: ReportsToDisplayInLHN, report: Report = flaggedReport, reportAttributes = requiresAttentionAttributes) =>
+                    SidebarUtils.updateReportsToDisplayInLHN({
+                        displayedReports,
+                        reports: {[flaggedReportKey]: report},
+                        updatedReportsKeys: [flaggedReportKey],
+                        currentReportId: undefined,
+                        isInFocusMode: false,
+                        isDefaultRoomsBetaEnabled: false,
+                        transactions: {},
+                        transactionViolations: {},
+                        reportNameValuePairs: {},
+                        reportAttributes,
+                        draftComments: {},
+                        isOffline: false,
+                        currentUserLogin: CURRENT_USER_LOGIN,
+                        currentUserAccountID: CURRENT_USER_ACCOUNT_ID,
+                        guideAccountIDs: [],
+                        conciergeReportID: undefined,
+                    });
+
+                it('should keep the same reference when a flagged report and its flags did not change', () => {
+                    const first = update({});
+                    expect(first[flaggedReportKey]?.requiresAttention).toBe(true);
+
+                    // Rechecking the same report with the same flags must not copy the entry or the map again,
+                    // otherwise every recompute in useSidebarOrderedReports sets new state.
+                    const second = update(first);
+
+                    expect(second).toBe(first);
+                    expect(second[flaggedReportKey]).toBe(first[flaggedReportKey]);
+                });
+
+                it('should rebuild the entry when the flagged report itself changes', () => {
+                    const first = update({});
+                    const updatedReport = {...flaggedReport, reportName: 'Renamed chat'};
+
+                    const second = update(first, updatedReport);
+
+                    expect(second).not.toBe(first);
+                    expect(second[flaggedReportKey]?.reportName).toBe('Renamed chat');
+                    expect(second[flaggedReportKey]?.requiresAttention).toBe(true);
+                });
+
+                it('should reuse a flagged entry built by getReportsToDisplayInLHN', () => {
+                    const built = SidebarUtils.getReportsToDisplayInLHN({
+                        currentReportId: undefined,
+                        reports: {[flaggedReportKey]: flaggedReport},
+                        isDefaultRoomsBetaEnabled: false,
+                        priorityMode: CONST.PRIORITY_MODE.DEFAULT,
+                        draftComments: {},
+                        transactionViolations: {},
+                        transactions: {},
+                        isOffline: false,
+                        currentUserLogin: CURRENT_USER_LOGIN,
+                        currentUserAccountID: CURRENT_USER_ACCOUNT_ID,
+                        reportNameValuePairs: {},
+                        reportAttributes: requiresAttentionAttributes,
+                        conciergeReportID: undefined,
+                        guideAccountIDs: [],
+                    });
+                    expect(built[flaggedReportKey]?.requiresAttention).toBe(true);
+
+                    expect(update(built)).toBe(built);
+                });
+            });
         });
 
         describe('getReportsToDisplayInLHN', () => {
